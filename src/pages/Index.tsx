@@ -8,11 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker using the local worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url
-).toString();
+// Set up PDF.js worker using Vite's static import
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/node_modules/pdfjs-dist/build/pdf.worker.min.js';
 
 const Index = () => {
   const [inputText, setInputText] = useState('');
@@ -102,7 +99,15 @@ const Index = () => {
       const arrayBuffer = await file.arrayBuffer();
       console.log('PDF arrayBuffer loaded, size:', arrayBuffer.byteLength);
       
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      // Try to load PDF without worker first as fallback
+      const loadingTask = pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true
+      });
+      
+      const pdf = await loadingTask.promise;
       console.log('PDF loaded successfully, pages:', pdf.numPages);
       
       let fullText = '';
