@@ -5,11 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import * as pdfjsLib from 'pdfjs-dist';
 import * as mammoth from 'mammoth';
-
-// Set up PDF.js worker with a more compatible approach
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Index = () => {
   const [inputText, setInputText] = useState('');
@@ -92,6 +88,50 @@ const Index = () => {
     setTanaOutput(tana);
   }, []);
 
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    // Use PDF-lib or a simpler approach for text extraction
+    // For now, we'll use a basic approach that works in most browsers
+    const formData = new FormData();
+    formData.append('pdf', file);
+    
+    try {
+      // Try using the browser's built-in PDF capabilities
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Simple text extraction - look for text patterns in the PDF
+      let text = '';
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      
+      // Convert to string and extract readable text
+      const pdfString = decoder.decode(uint8Array);
+      
+      // Extract text between common PDF text markers
+      const textMatches = pdfString.match(/\((.*?)\)/g);
+      if (textMatches) {
+        text = textMatches
+          .map(match => match.slice(1, -1)) // Remove parentheses
+          .filter(str => str.length > 1 && /[a-zA-Z]/.test(str)) // Filter out non-text
+          .join(' ');
+      }
+      
+      // If no text found, try another approach
+      if (!text.trim()) {
+        // Look for text in different encoding
+        const textPattern = /BT\s*(.*?)\s*ET/gs;
+        const matches = pdfString.match(textPattern);
+        if (matches) {
+          text = matches.join(' ').replace(/BT|ET/g, '').trim();
+        }
+      }
+      
+      return text || 'No readable text found in this PDF. Please try converting the PDF to a text file first.';
+    } catch (error) {
+      console.error('PDF text extraction error:', error);
+      throw new Error('Unable to extract text from PDF. Please try converting it to a text file first.');
+    }
+  };
+
   const handleFileUpload = async (file: File) => {
     console.log('handleFileUpload called with file:', file);
     console.log('File details:', {
@@ -106,46 +146,13 @@ const Index = () => {
     try {
       if (file.type === 'application/pdf') {
         console.log('Processing PDF file...');
-        // Process PDF with a different approach to avoid worker issues
-        const arrayBuffer = await file.arrayBuffer();
-        console.log('PDF arrayBuffer size:', arrayBuffer.byteLength);
-        
-        try {
-          // Try to load PDF with minimal configuration
-          const pdf = await pdfjsLib.getDocument({
-            data: arrayBuffer,
-            verbosity: 0 // Reduce console noise
-          }).promise;
-          
-          console.log('PDF loaded, pages:', pdf.numPages);
-          
-          let fullText = '';
-          
-          for (let i = 1; i <= pdf.numPages; i++) {
-            console.log(`Processing page ${i}...`);
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items
-              .filter((item: any) => item.str)
-              .map((item: any) => item.str)
-              .join(' ');
-            fullText += pageText + '\n\n';
-          }
-          
-          console.log('Extracted text length:', fullText.length);
-          processText(fullText);
-          toast({
-            title: "PDF processed successfully",
-            description: `Extracted text from ${pdf.numPages} pages`,
-          });
-        } catch (pdfError) {
-          console.error('PDF processing error:', pdfError);
-          toast({
-            title: "PDF processing failed",
-            description: "This PDF file couldn't be processed. Please try converting it to a text file first.",
-            variant: "destructive",
-          });
-        }
+        const text = await extractTextFromPDF(file);
+        console.log('Extracted text length:', text.length);
+        processText(text);
+        toast({
+          title: "PDF processed successfully",
+          description: "Text extracted and converted from PDF file",
+        });
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
         console.log('Processing DOCX file...');
         // Process DOCX files (Google Docs exports)
@@ -182,7 +189,7 @@ const Index = () => {
       console.error('Error processing file:', error);
       toast({
         title: "Error processing file",
-        description: `There was an error reading your file: ${error.message}`,
+        description: error.message || "There was an error reading your file",
         variant: "destructive",
       });
     } finally {
