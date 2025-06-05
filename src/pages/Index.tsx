@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Upload, FileText, Copy, Check, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -93,46 +92,61 @@ const Index = () => {
   }, []);
 
   const handleFileUpload = async (file: File) => {
+    console.log('File selected:', file.name, file.type, file.size);
     setIsProcessing(true);
     
     try {
       if (file.type === 'application/pdf') {
+        console.log('Processing PDF file...');
         // Process PDF
         const arrayBuffer = await file.arrayBuffer();
+        console.log('PDF arrayBuffer size:', arrayBuffer.byteLength);
+        
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        console.log('PDF loaded, pages:', pdf.numPages);
+        
         let fullText = '';
         
         for (let i = 1; i <= pdf.numPages; i++) {
+          console.log(`Processing page ${i}...`);
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
-          const pageText = textContent.items.map((item: any) => item.str).join(' ');
+          const pageText = textContent.items
+            .filter((item: any) => item.str)
+            .map((item: any) => item.str)
+            .join(' ');
           fullText += pageText + '\n\n';
         }
         
+        console.log('Extracted text length:', fullText.length);
         processText(fullText);
         toast({
           title: "PDF processed successfully",
           description: `Extracted text from ${pdf.numPages} pages`,
         });
-      } else if (file.type.startsWith('text/')) {
+      } else if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+        console.log('Processing text file...');
         // Process text files
         const text = await file.text();
+        console.log('Text file content length:', text.length);
         processText(text);
         toast({
           title: "File processed successfully",
           description: "Text extracted and converted",
         });
       } else {
+        console.log('Unsupported file type:', file.type);
         toast({
           title: "Unsupported file type",
-          description: "Please upload a PDF or text file",
+          description: `Please upload a PDF or text file. File type: ${file.type}`,
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error('Error processing file:', error);
       toast({
         title: "Error processing file",
-        description: "There was an error reading your file",
+        description: `There was an error reading your file: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -208,16 +222,18 @@ const Index = () => {
                     Drop files here or click to upload
                   </p>
                   <p className="text-sm text-gray-500">
-                    Supports PDF, TXT, and other text files
+                    Supports PDF, TXT, MD, and other text files
                   </p>
                   <input
                     id="file-input"
                     type="file"
                     className="hidden"
-                    accept=".pdf,.txt,.md,.docx"
+                    accept=".pdf,.txt,.md,.docx,application/pdf,text/*"
                     onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        handleFileUpload(e.target.files[0]);
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        console.log('File input changed:', file.name);
+                        handleFileUpload(file);
                       }
                     }}
                   />
