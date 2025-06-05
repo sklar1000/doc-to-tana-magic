@@ -6,6 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import * as mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Index = () => {
   const [inputText, setInputText] = useState('');
@@ -89,46 +93,39 @@ const Index = () => {
   }, []);
 
   const extractTextFromPDF = async (file: File): Promise<string> => {
-    // Use PDF-lib or a simpler approach for text extraction
-    // For now, we'll use a basic approach that works in most browsers
-    const formData = new FormData();
-    formData.append('pdf', file);
+    console.log('Starting PDF text extraction with PDF.js...');
     
     try {
-      // Try using the browser's built-in PDF capabilities
       const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
+      console.log('PDF arrayBuffer loaded, size:', arrayBuffer.byteLength);
       
-      // Simple text extraction - look for text patterns in the PDF
-      let text = '';
-      const decoder = new TextDecoder('utf-8', { fatal: false });
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log('PDF loaded successfully, pages:', pdf.numPages);
       
-      // Convert to string and extract readable text
-      const pdfString = decoder.decode(uint8Array);
+      let fullText = '';
       
-      // Extract text between common PDF text markers
-      const textMatches = pdfString.match(/\((.*?)\)/g);
-      if (textMatches) {
-        text = textMatches
-          .map(match => match.slice(1, -1)) // Remove parentheses
-          .filter(str => str.length > 1 && /[a-zA-Z]/.test(str)) // Filter out non-text
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        console.log(`Processing page ${pageNum}/${pdf.numPages}`);
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        const pageText = textContent.items
+          .map((item: any) => item.str)
           .join(' ');
+        
+        fullText += pageText + '\n\n';
       }
       
-      // If no text found, try another approach
-      if (!text.trim()) {
-        // Look for text in different encoding
-        const textPattern = /BT\s*(.*?)\s*ET/gs;
-        const matches = pdfString.match(textPattern);
-        if (matches) {
-          text = matches.join(' ').replace(/BT|ET/g, '').trim();
-        }
+      console.log('Total extracted text length:', fullText.length);
+      
+      if (fullText.trim().length === 0) {
+        return 'No readable text found in this PDF. The PDF might contain only images or be password protected.';
       }
       
-      return text || 'No readable text found in this PDF. Please try converting the PDF to a text file first.';
+      return fullText.trim();
     } catch (error) {
       console.error('PDF text extraction error:', error);
-      throw new Error('Unable to extract text from PDF. Please try converting it to a text file first.');
+      throw new Error(`Failed to extract text from PDF: ${error.message}`);
     }
   };
 
