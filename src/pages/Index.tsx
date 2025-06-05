@@ -93,7 +93,14 @@ const Index = () => {
   }, []);
 
   const handleFileUpload = async (file: File) => {
-    console.log('File selected:', file.name, file.type, file.size);
+    console.log('handleFileUpload called with file:', file);
+    console.log('File details:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified
+    });
+    
     setIsProcessing(true);
     
     try {
@@ -184,8 +191,10 @@ const Index = () => {
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
+    console.log('Drop event triggered');
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
+    console.log('Dropped files:', files);
     if (files.length > 0) {
       handleFileUpload(files[0]);
     }
@@ -194,6 +203,31 @@ const Index = () => {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
   }, []);
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input change triggered');
+    console.log('Input files:', e.target.files);
+    const file = e.target.files?.[0];
+    if (file) {
+      console.log('File selected from input:', file.name);
+      handleFileUpload(file);
+    } else {
+      console.log('No file selected');
+    }
+    // Reset the input value so the same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleUploadAreaClick = () => {
+    console.log('Upload area clicked');
+    const fileInput = document.getElementById('file-input') as HTMLInputElement;
+    if (fileInput) {
+      console.log('Triggering file input click');
+      fileInput.click();
+    } else {
+      console.error('File input element not found');
+    }
+  };
 
   const copyToClipboard = async (text: string, type: 'markdown' | 'tana') => {
     try {
@@ -244,7 +278,7 @@ const Index = () => {
                   className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
-                  onClick={() => document.getElementById('file-input')?.click()}
+                  onClick={handleUploadAreaClick}
                 >
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-lg font-medium text-gray-600 mb-2">
@@ -258,13 +292,7 @@ const Index = () => {
                     type="file"
                     className="hidden"
                     accept=".pdf,.txt,.md,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        console.log('File input changed:', file.name);
-                        handleFileUpload(file);
-                      }
-                    }}
+                    onChange={handleFileInputChange}
                   />
                 </div>
 
