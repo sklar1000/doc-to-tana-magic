@@ -8,13 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as mammoth from 'mammoth';
 
-// Set up PDF.js worker with better compatibility
-try {
-  // Use a simpler approach that works better in Vite environments
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-} catch (error) {
-  console.log('PDF worker setup failed, will try alternative approach');
-}
+// Set up PDF.js worker with a more compatible approach
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Index = () => {
   const [inputText, setInputText] = useState('');
@@ -104,14 +99,17 @@ const Index = () => {
     try {
       if (file.type === 'application/pdf') {
         console.log('Processing PDF file...');
-        // Process PDF with simplified approach
+        // Process PDF with a different approach to avoid worker issues
         const arrayBuffer = await file.arrayBuffer();
         console.log('PDF arrayBuffer size:', arrayBuffer.byteLength);
         
         try {
-          // Simplified PDF loading without worker-specific options
-          const loadingTask = pdfjsLib.getDocument(arrayBuffer);
-          const pdf = await loadingTask.promise;
+          // Try to load PDF with minimal configuration
+          const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+            verbosity: 0 // Reduce console noise
+          }).promise;
+          
           console.log('PDF loaded, pages:', pdf.numPages);
           
           let fullText = '';
@@ -137,7 +135,7 @@ const Index = () => {
           console.error('PDF processing error:', pdfError);
           toast({
             title: "PDF processing failed",
-            description: "Unable to process this PDF file. Please try converting it to a text file first or use a different PDF.",
+            description: "This PDF file couldn't be processed. Please try converting it to a text file first.",
             variant: "destructive",
           });
         }
