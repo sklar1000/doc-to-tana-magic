@@ -8,22 +8,13 @@ import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as mammoth from 'mammoth';
 
-// Set up PDF.js worker with fallback
-const setupPDFWorker = () => {
-  try {
-    // Try using the bundled worker first
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.js',
-      import.meta.url
-    ).toString();
-  } catch (error) {
-    console.log('Falling back to CDN worker...');
-    // Fallback to CDN with a different approach
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
-  }
-};
-
-setupPDFWorker();
+// Set up PDF.js worker with better compatibility
+try {
+  // Use a simpler approach that works better in Vite environments
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+} catch (error) {
+  console.log('PDF worker setup failed, will try alternative approach');
+}
 
 const Index = () => {
   const [inputText, setInputText] = useState('');
@@ -113,17 +104,13 @@ const Index = () => {
     try {
       if (file.type === 'application/pdf') {
         console.log('Processing PDF file...');
-        // Process PDF with better error handling
+        // Process PDF with simplified approach
         const arrayBuffer = await file.arrayBuffer();
         console.log('PDF arrayBuffer size:', arrayBuffer.byteLength);
         
         try {
-          const loadingTask = pdfjsLib.getDocument({ 
-            data: arrayBuffer,
-            useWorkerFetch: false,
-            isEvalSupported: false
-          });
-          
+          // Simplified PDF loading without worker-specific options
+          const loadingTask = pdfjsLib.getDocument(arrayBuffer);
           const pdf = await loadingTask.promise;
           console.log('PDF loaded, pages:', pdf.numPages);
           
@@ -150,7 +137,7 @@ const Index = () => {
           console.error('PDF processing error:', pdfError);
           toast({
             title: "PDF processing failed",
-            description: "There was an issue processing the PDF file. Please try a different file or convert it to text first.",
+            description: "Unable to process this PDF file. Please try converting it to a text file first or use a different PDF.",
             variant: "destructive",
           });
         }
