@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
+import * as mammoth from 'mammoth';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -124,6 +125,20 @@ const Index = () => {
           title: "PDF processed successfully",
           description: `Extracted text from ${pdf.numPages} pages`,
         });
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
+        console.log('Processing DOCX file...');
+        // Process DOCX files (Google Docs exports)
+        const arrayBuffer = await file.arrayBuffer();
+        console.log('DOCX arrayBuffer size:', arrayBuffer.byteLength);
+        
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        console.log('Extracted text length:', result.value.length);
+        
+        processText(result.value);
+        toast({
+          title: "Google Doc processed successfully",
+          description: "Text extracted and converted from DOCX file",
+        });
       } else if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
         console.log('Processing text file...');
         // Process text files
@@ -138,7 +153,7 @@ const Index = () => {
         console.log('Unsupported file type:', file.type);
         toast({
           title: "Unsupported file type",
-          description: `Please upload a PDF or text file. File type: ${file.type}`,
+          description: `Please upload a PDF, Google Doc (.docx), or text file. File type: ${file.type}`,
           variant: "destructive",
         });
       }
@@ -195,7 +210,7 @@ const Index = () => {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Text Converter</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Convert your text and documents to Markdown or Tana Paste format. Supports text input, PDF files, and more.
+            Convert your text and documents to Markdown or Tana Paste format. Supports text input, PDF files, Google Docs, and more.
           </p>
         </div>
 
@@ -222,13 +237,13 @@ const Index = () => {
                     Drop files here or click to upload
                   </p>
                   <p className="text-sm text-gray-500">
-                    Supports PDF, TXT, MD, and other text files
+                    Supports PDF, Google Docs (.docx), TXT, MD, and other text files
                   </p>
                   <input
                     id="file-input"
                     type="file"
                     className="hidden"
-                    accept=".pdf,.txt,.md,.docx,application/pdf,text/*"
+                    accept=".pdf,.txt,.md,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
