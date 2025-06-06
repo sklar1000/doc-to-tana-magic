@@ -8,8 +8,11 @@ import { useToast } from '@/hooks/use-toast';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Fix for PDF.js worker - use CDN
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Use local worker configuration
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js', 
+  import.meta.url
+).toString();
 
 const Index = () => {
   const [inputText, setInputText] = useState('');
@@ -93,18 +96,19 @@ const Index = () => {
   }, []);
 
   const extractTextFromPDF = async (file: File): Promise<string> => {
-    console.log('Starting PDF text extraction with PDF.js...');
+    console.log('Starting PDF text extraction with PDF.js using local worker...');
     
     try {
       const arrayBuffer = await file.arrayBuffer();
       console.log('PDF arrayBuffer loaded, size:', arrayBuffer.byteLength);
       
-      // Try to load PDF without worker first as fallback
-      const loadingTask = pdfjsLib.getDocument({ 
+      // Configure PDF loading with minimal options
+      const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
         useWorkerFetch: false,
         isEvalSupported: false,
-        useSystemFonts: true
+        useSystemFonts: true,
+        verbosity: 0
       });
       
       const pdf = await loadingTask.promise;
